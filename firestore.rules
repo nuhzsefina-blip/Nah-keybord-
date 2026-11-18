@@ -1,0 +1,143 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable zero-trust primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidUserSettingsProfile(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId == request.auth.uid &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.inputMode in ['FIDEL_INPLACE', 'ENGLISH_QWERTY'] &&
+             data.foldLayoutPreference in ['AUTO', 'UNFOLDED_SPLIT', 'MULTI_WINDOW_DOCK', 'COVER_COMPACT', 'FLEX_TABLETOP'] &&
+             data.splitGapDp is number && data.splitGapDp >= 40 && data.splitGapDp <= 148 &&
+             data.keyHeightDp is number && data.keyHeightDp >= 36 && data.keyHeightDp <= 68 &&
+             data.letterSizeSp is number && data.letterSizeSp >= 14 && data.letterSizeSp <= 26 &&
+             data.themeStyle is string && data.themeStyle.size() >= 1 && data.themeStyle.size() <= 40 &&
+             data.autoCorrectEnabled is bool &&
+             data.nextFidelHintsEnabled is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidDictionaryWordEntry(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId == request.auth.uid &&
+             data.word is string && data.word.size() >= 1 && data.word.size() <= 64 &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 120)) &&
+             data.frequency is int && data.frequency >= 1 && data.frequency <= 1000000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidVoiceTranscriptionEntry(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId == request.auth.uid &&
+             data.transcript is string && data.transcript.size() >= 1 && data.transcript.size() <= 4000 &&
+             data.modelName is string && data.modelName.size() >= 1 && data.modelName.size() <= 80 &&
+             data.durationSeconds is int && data.durationSeconds >= 0 && data.durationSeconds <= 600 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'inputMode', 'foldLayoutPreference',
+                         'splitGapDp', 'keyHeightDp', 'letterSizeSp', 'themeStyle',
+                         'autoCorrectEnabled', 'nextFidelHintsEnabled', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'inputMode', 'foldLayoutPreference',
+                         'splitGapDp', 'keyHeightDp', 'letterSizeSp', 'themeStyle',
+                         'autoCorrectEnabled', 'nextFidelHintsEnabled', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserSettingsProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserSettingsProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'inputMode', 'foldLayoutPreference',
+                         'splitGapDp', 'keyHeightDp', 'letterSizeSp', 'themeStyle',
+                         'autoCorrectEnabled', 'nextFidelHintsEnabled', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /dictionary/{entryId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(entryId);
+        allow list: if isOwner(userId) && isValidId(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(entryId) &&
+                         incoming().keys().hasAll(['userId', 'word', 'frequency', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'word', 'note', 'frequency', 'createdAt', 'updatedAt']) &&
+                         isValidDictionaryWordEntry(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(entryId) &&
+                         isValidDictionaryWordEntry(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           (incoming().diff(existing()).affectedKeys().hasOnly(['frequency', 'updatedAt'])) ||
+                           (incoming().diff(existing()).affectedKeys().hasOnly(['word', 'note', 'frequency', 'updatedAt']))
+                         );
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(entryId);
+      }
+
+      match /transcriptions/{transcriptionId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(transcriptionId);
+        allow list: if isOwner(userId) && isValidId(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(transcriptionId) &&
+                         incoming().keys().hasAll(['userId', 'transcript', 'modelName', 'durationSeconds', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'transcript', 'modelName', 'durationSeconds', 'createdAt', 'updatedAt']) &&
+                         isValidVoiceTranscriptionEntry(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(transcriptionId) &&
+                         isValidVoiceTranscriptionEntry(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['transcript', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(transcriptionId);
+      }
+    }
+  }
+}

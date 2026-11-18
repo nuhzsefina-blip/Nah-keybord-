@@ -1,0 +1,178 @@
+{
+  "entities": {
+    "UserSettingsProfile": {
+      "title": "User Settings Profile",
+      "description": "Synced foldable keyboard configuration, theme, auto-correction toggles, and user profile.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated Firebase UID owning this profile."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name (max 100 chars)."
+        },
+        "inputMode": {
+          "type": "string",
+          "enum": ["FIDEL_INPLACE", "ENGLISH_QWERTY"],
+          "description": "Default typing engine."
+        },
+        "foldLayoutPreference": {
+          "type": "string",
+          "enum": ["AUTO", "UNFOLDED_SPLIT", "MULTI_WINDOW_DOCK", "COVER_COMPACT", "FLEX_TABLETOP"],
+          "description": "Z Fold 7 posture layout preference."
+        },
+        "splitGapDp": {
+          "type": "number",
+          "description": "Unfolded hinge gap width in dp (40..148)."
+        },
+        "keyHeightDp": {
+          "type": "number",
+          "description": "Keyboard keycap height in dp (36..68)."
+        },
+        "letterSizeSp": {
+          "type": "number",
+          "description": "Keyboard keycap letter size in sp (14..26)."
+        },
+        "themeStyle": {
+          "type": "string",
+          "description": "Selected keyboard theme enum name."
+        },
+        "autoCorrectEnabled": {
+          "type": "boolean",
+          "description": "Whether Amharic dictionary auto-correction on space is enabled."
+        },
+        "nextFidelHintsEnabled": {
+          "type": "boolean",
+          "description": "Whether next-fidel predictive chips are displayed while typing."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "inputMode",
+        "foldLayoutPreference",
+        "splitGapDp",
+        "keyHeightDp",
+        "letterSizeSp",
+        "themeStyle",
+        "autoCorrectEnabled",
+        "nextFidelHintsEnabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DictionaryWordEntry": {
+      "title": "Dictionary Word Entry",
+      "description": "User-saved Amharic word entry synced to improve next-fidel predictions and auto-correction.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated Firebase UID owning this word entry."
+        },
+        "word": {
+          "type": "string",
+          "description": "Amharic word or phrase (1..64 chars)."
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional meaning or transliteration note (max 120 chars)."
+        },
+        "frequency": {
+          "type": "integer",
+          "description": "Usage weight for ranking suggestions (1..1000000)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "word",
+        "frequency",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "VoiceTranscriptionEntry": {
+      "title": "Voice Transcription Entry",
+      "description": "Speech-to-text transcription captured via microphone and processed by gemini-3.5-transcribe.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated Firebase UID owning this transcription."
+        },
+        "transcript": {
+          "type": "string",
+          "description": "Transcribed Amharic/English text (1..4000 chars)."
+        },
+        "modelName": {
+          "type": "string",
+          "description": "Gemini model used for transcription (gemini-3.5-transcribe)."
+        },
+        "durationSeconds": {
+          "type": "integer",
+          "description": "Audio clip duration in seconds (0..600)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "transcript",
+        "modelName",
+        "durationSeconds",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserSettingsProfile"
+      },
+      "description": "Per-user keyboard preferences and profile document."
+    },
+    "/users/{userId}/dictionary/{entryId}": {
+      "schema": {
+        "$ref": "#/entities/DictionaryWordEntry"
+      },
+      "description": "User's personal Amharic auto-correction and next-fidel dictionary."
+    },
+    "/users/{userId}/transcriptions/{transcriptionId}": {
+      "schema": {
+        "$ref": "#/entities/VoiceTranscriptionEntry"
+      },
+      "description": "User's saved Gemini audio transcription history."
+    }
+  }
+}

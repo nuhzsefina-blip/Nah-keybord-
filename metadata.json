@@ -1,0 +1,6 @@
+{
+  "name": "ኑህ Amharic Keyboard",
+  "description": "An Amharic (Fidel/Geez) keyboard engineered for Samsung Galaxy Z Fold 7 foldable postures, split-screen multitasking, and adaptive split-thumb layouts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
